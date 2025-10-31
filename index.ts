@@ -3,7 +3,7 @@ import { CandlestickApi, IsomorphicFetchHttpLibrary, ServerConfiguration } from 
 const BASE_URL = "https://mainnet.zklighter.elliot.ai"
 const SOL_MARKET_ID = 1
 
-async function getKlines(maeketId: number) {
+
     const klinesApi = new CandlestickApi({
         baseServer: new ServerConfiguration<{  }>(BASE_URL, {  }),
         httpApi: new IsomorphicFetchHttpLibrary(),
@@ -11,9 +11,10 @@ async function getKlines(maeketId: number) {
         authMethods: {}
     });
 
-    const klines = await klinesApi.candlesticks(SOL_MARKET_ID, '4h', Date.now() - 1000 * 60 * 60 * 96, Date.now(), 50, false);
+async function getIndicators(duration: "5m" | "4h", marketId: number) {
+    const klines = await klinesApi.candlesticks(marketId, duration, Date.now() - 1000 * 60 * 60 * (duration === "5m" ? 2 : 96), Date.now(), 50, false);
     const midPrices = getMidPrices(klines.candlesticks);
-    console.log("MID Prices")
+    console.log(`POSITOIN ${duration}`);
     console.log(midPrices);
     const emas20s = getEMA(midPrices, 20);
     console.log("EMA20s")
@@ -21,6 +22,11 @@ async function getKlines(maeketId: number) {
     console.log("MACDS")
     const macd = getMACD(midPrices);
     console.log(macd);
+}
+
+async function getKlines(marketId: number) {
+    getIndicators("5m", marketId);
+    getIndicators("4h", marketId);
 }
 
 getKlines(SOL_MARKET_ID);
