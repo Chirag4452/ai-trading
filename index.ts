@@ -11,22 +11,16 @@ const SOL_MARKET_ID = 1
         authMethods: {}
     });
 
-async function getIndicators(duration: "5m" | "4h", marketId: number) {
+export async function getIndicators(duration: "5m" | "4h", marketId: number) {
     const klines = await klinesApi.candlesticks(marketId, duration, Date.now() - 1000 * 60 * 60 * (duration === "5m" ? 2 : 96), Date.now(), 50, false);
     const midPrices = getMidPrices(klines.candlesticks);
-    console.log(`POSITOIN ${duration}`);
-    console.log(midPrices);
     const emas20s = getEMA(midPrices, 20);
-    console.log("EMA20s")
-    console.log(emas20s.slice(-10));
-    console.log("MACDS")
     const macd = getMACD(midPrices);
-    console.log(macd);
+
+    return {
+        midPrices: midPrices.slice(-10),
+        macd: macd.slice(-10),
+        emas20s: emas20s.slice(-10)
+    }
 }
 
-async function getKlines(marketId: number) {
-    getIndicators("5m", marketId);
-    getIndicators("4h", marketId);
-}
-
-getKlines(SOL_MARKET_ID);
