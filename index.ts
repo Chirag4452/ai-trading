@@ -1,26 +1,60 @@
-import { getEMA, getMACD, getMidPrices } from "./indicators";
-import { CandlestickApi, IsomorphicFetchHttpLibrary, ServerConfiguration } from "./lighter-sdk-ts/generated";
-const BASE_URL = "https://mainnet.zklighter.elliot.ai"
-const SOL_MARKET_ID = 1
+import { createOpenRouter } from '@openrouter/ai-sdk-provider';
+import { streamText } from 'ai';
+import { z } from 'zod';
+import { PROMPT } from './prompt';
+import type { Account } from './lighter-sdk-ts/generated';
+import { getIndicators } from './stockData';
+import { getOpenPositions } from './openPositions';
 
 
-    const klinesApi = new CandlestickApi({
-        baseServer: new ServerConfiguration<{  }>(BASE_URL, {  }),
-        httpApi: new IsomorphicFetchHttpLibrary(),
-        middleware: [],
-        authMethods: {}
-    });
+export const invokeAgent = async (account: Account) => {
+  const openrouter = createOpenRouter({
+    apiKey: process.env['OPEN_ROUTER_API_KEY'] ?? '',
+  });
 
-export async function getIndicators(duration: "5m" | "4h", marketId: number) {
-    const klines = await klinesApi.candlesticks(marketId, duration, Date.now() - 1000 * 60 * 60 * (duration === "5m" ? 2 : 96), Date.now(), 50, false);
-    const midPrices = getMidPrices(klines.candlesticks);
-    const emas20s = getEMA(midPrices, 20);
-    const macd = getMACD(midPrices);
+  const intradayIndicators = await getIndicators("5m", 0);
+  const longtermIndicators = await getIndicators("5m", 0);
 
-    return {
-        midPrices: midPrices.slice(-10),
-        macd: macd.slice(-10),
-        emas20s: emas20s.slice(-10)
-    }
-}
+  const openPositions = await getOpenPositions(account.apiKey);
 
+  
+
+  const response = streamText({
+    model: openrouter(account.modelName),
+    prompt: PROMPT.,
+    tools: {
+      getCurrentWeather: {
+        description: 'Get the current weather in a given location',
+        parameters: z.object({
+          location: z
+            .string()
+            .describe('The city and state, e.g. San Francisco, CA'),
+          unit: z.enum(['celsius', 'fahrenheit']).optional(),
+        }),
+        execute: async ({ location, unit = 'celsius' }) => {
+          // Mock response for the weather
+          const weatherData = {
+            'Boston, MA': {
+              celsius: '15°C',
+              fahrenheit: '59°F',
+            },
+            'San Francisco, CA': {
+              celsius: '18°C',
+              fahrenheit: '64°F',
+            },
+          };
+
+          const weather = weatherData[location];
+          if (!weather) {
+            return `Weather data for ${location} is not available.`;
+          }
+
+          return `The current weather in ${location} is ${weather[unit]}.`;
+        },
+      },
+    },
+  });
+
+  await response.consumeStream();
+  return response.text;
+};
